@@ -1333,6 +1333,36 @@ function Illustrations:displayImages(images, is_gallery_mode, max_page, is_favor
         end
     end
 
+    -- Spoiler protection notification
+    if not is_favorites and max_page then
+        local hidden_count = 0
+        for _, img in ipairs(images) do
+            if img.valid and img.page > max_page then
+                hidden_count = hidden_count + 1
+            end
+        end
+        if hidden_count > 0 then
+            local msg = string.format(_("Spoiler protection is active. Illustrations in upcoming pages (%d) will be hidden."), hidden_count)
+            UIManager:show(ConfirmBox:new{
+                text = msg,
+                ok_text = _("Allow Spoilers"),
+                cancel_text = _("OK"),
+                ok_callback = function()
+                    G_reader_settings:saveSetting("illustrations_allow_spoilers", true)
+                    self:findAndDisplayImages(is_gallery_mode)
+                end,
+                cancel_callback = function()
+                    self:_showExtractedImages(extracted_images, is_gallery_mode, is_favorites)
+                end,
+            })
+            return
+        end
+    end
+
+    self:_showExtractedImages(extracted_images, is_gallery_mode, is_favorites)
+end
+
+function Illustrations:_showExtractedImages(extracted_images, is_gallery_mode, is_favorites)
     if #extracted_images == 0 then
         UIManager:show(InfoMessage:new{
             text = _("No images found."),
@@ -1429,11 +1459,8 @@ function Illustrations:displayImages(images, is_gallery_mode, max_page, is_favor
     else
         -- Show Single Image View (Illustrations)
         local start_index = 1
-        -- Try to find the image closest to current page (but not after, if possible)
-        -- Actually, logic usually is "show all images found up to current page"
-        -- If allow_spoilers is FALSE, extracted_images only contains safe images.
-        -- We probably want to start from the *latest* one (most recently read)
-        if not allow_spoilers then
+        -- If spoilers are blocked, start from the last (most recently read) image
+        if not G_reader_settings:readSetting("illustrations_allow_spoilers") then
             start_index = #extracted_images 
         end
         
